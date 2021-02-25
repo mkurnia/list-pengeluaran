@@ -1,0 +1,26 @@
+.list-item {
+  &.card {border-radius: 14px;}
+  .card-header {font-weight: 700;}
+  .table {
+    tr {
+      td {font-size: 14px;}
+      &:first-child {
+        td {border-top: 0;}
+      }
+      &:last-child {
+        td {border-bottom: 3px solid #dee2e6;}
+      }
+    }
+  }
+  .footer-item {
+    font-weight: 700;
+    font-size: 14px;
+  }
+}
+
+.not-found {
+  img {
+    width: 160px;
+    margin: 50px 0;
+  }
+}
