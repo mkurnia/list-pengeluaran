@@ -4,7 +4,7 @@
       <b-row>
         <b-col class="mb-5">
           <h2>Diari Jajan {{ new Date() | moment("MMMM YYYY") }}</h2>
-          <p>Pengeluaran Bulan ini {{ totalPerMonth | currency}}</p>
+          <p>Pengeluaran Bulan ini {{ totalItemsPerMonth | currency}}</p>
           <b-button variant="primary" @click="toggleModal">TAMBAH ITEM</b-button>
         </b-col>
       </b-row>
@@ -17,14 +17,14 @@
           ></b-skeleton-table>
         </b-col>
       </b-row>
-      <b-row v-else-if="!loading && !groupingItems.length">
+      <b-row v-else-if="!loading && !itemsFilterPerDay.length">
         <b-col cols="12" class="mb-4 not-found">
           <img src="../assets/images/not-found.png" alt="">
           <h1>Data tidak tersedia</h1>
         </b-col>
       </b-row>
       <b-row v-else>
-        <b-col cols="12" md="3" class="mb-4" v-for="item in groupingItems" :key="item.id">
+        <b-col cols="12" md="3" class="mb-4" v-for="item in itemsFilterPerDay" :key="item.id">
           <b-card-group deck class="h-100">
             <b-card header-tag="header" class="text-left list-item">
               <template #header>
@@ -45,7 +45,7 @@
                   Total
                 </b-col>
                 <b-col cols="5" class="mb-4">
-                  {{ totalPerItem(item.group) | currency}}
+                  {{ item.total | currency}}
                 </b-col>
               </b-row>
             </b-card>
@@ -102,10 +102,43 @@ export default {
         {key: 'cost'}
       ],
       localItems: [],
-      groupingItems: [],
-      totalPerMonth: 0,
       name: '',
       cost: null
+    }
+  },
+  computed: {
+    itemsFilterPerMonth() {
+      const data = this.localItems.reduce((result, curr) => {
+        const newDate = moment(new Date()).format("YYYY-MM")
+        const itemDate = moment(curr.created_at).format("YYYY-MM")
+        if (newDate === itemDate) {
+          return [
+            ...result,
+            {
+              ...curr,
+              month: curr.created_at.substring(0, 10),
+              convert_date: moment(curr.created_at).toDate()
+            }
+          ]
+        }
+        return result
+      }, [])
+      return data;
+    },
+    itemsFilterPerDay() {
+      const grouping = _.chain(this.itemsFilterPerMonth)
+        .groupBy('month')
+        .map((value, key) => ({
+          month: key,
+          date: moment(key).toDate(),
+          total: value.reduce((a,b) => a + b.cost, 0), // total per day
+          group: value.sort((a, b) => a.convert_date - b.convert_date) }))
+        .value()
+
+      return grouping.sort((a, b) => b.date - a.date)
+    },
+    totalItemsPerMonth() {
+      return this.itemsFilterPerMonth.reduce((result, current) => result + current.cost, 0)
     }
   },
   mounted() {
@@ -120,7 +153,6 @@ export default {
         await this.getItems()
           .then((res) => {
             this.localItems = res
-            this.filterItems()
           })
       } catch (error) {
         this.$bvToast.toast(`Gagal menampilkan pengeluaran`, {
@@ -133,48 +165,6 @@ export default {
       } finally {
         this.loading = false
       }
-    },
-    filterItems() {
-      const filterDate = this.localItems.filter((val) => {
-        const newDate = moment(new Date()).format("YYYY-MM")
-        const itemDate = moment(val.created_at).format("YYYY-MM")
-
-        return itemDate === newDate
-      })
-
-      let costArr = []
-
-      const splitDate = filterDate.map((val) => {
-        const newDate = moment(new Date()).format("YYYY-MM")
-        const itemDate = moment(val.created_at).format("YYYY-MM")
-
-        if(itemDate === newDate) {
-          costArr.push(val.cost)
-          return {
-            ...val,
-            month: val.created_at.substring(0, 10),
-            convert_date: moment(val.created_at).toDate()
-          }
-        }
-      })
-
-      this.totalPerMonth = costArr.reduce((a, b) => a + b, 0)
-
-      const grouping = _.chain(splitDate)
-        .groupBy('month')
-        .map((value, key) => ({
-          month: key,
-          date: moment(key).toDate(),
-          group: value.sort((a, b) => a.convert_date - b.convert_date) }))
-        .value()
-
-      this.groupingItems = grouping.sort((a, b) => b.date - a.date)
-    },
-    totalPerItem(value) {
-      let cost = []
-      value.map((val) => {cost.push(val.cost)})
-
-      return cost.reduce((a, b) => a + b, 0)
     },
     toggleModal() {
       this.name = ''
